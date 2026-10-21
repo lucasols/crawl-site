@@ -52,9 +52,35 @@ With `includeSubLinks`, the crawler follows links on the same host whose path st
 | `concurrency`     | `8`                                | pages fetched in parallel                                             |
 | `maxFailureRate`  | `0.5` up to 20 pages, `0.25` after | returns `maxFailureRate` when the rate of failed pages is higher      |
 | `abortController` |                                    | aborts the crawl                                                      |
-| `siteFetcherUrl`  |                                    | fallback fetcher used when a direct fetch fails, e.g. because of CORS |
+| `siteFetcher`     |                                    | fallback fetcher used when a direct fetch fails, e.g. because of CORS |
 | `showLogs`        | `false`                            | logs each page                                                        |
 
 ### Site fetcher
 
-Browsers block most cross origin fetches, so pass a `siteFetcherUrl` to fall back to a server side fetcher. It receives the page as the `url` search param and must respond with the final url after redirects, a `\n---\n` separator and the page html. Once a page needs the fetcher, the following pages skip the direct fetch.
+Browsers block most cross origin fetches, so pass a `siteFetcher` to fall back to a server side fetcher. It returns the final url after redirects and the page html. Once a page needs the fetcher, the following pages skip the direct fetch. Return a `TypedFetchError` with status 404 to skip the page.
+
+```ts
+import { typedFetch } from '@ls-stack/typed-fetch';
+import { crawlSite, type SiteFetcher } from '@ls-stack/crawl-site';
+import { Result } from 't-result';
+
+const siteFetcher: SiteFetcher = async (url, { signal }) => {
+  const fetchUrl = new URL('https://my-fetcher.example.com');
+
+  fetchUrl.searchParams.set('url', url.toString());
+
+  const result = await typedFetch(fetchUrl, {
+    jsonResponse: false,
+    timeoutMs: 60_000,
+    signal,
+  });
+
+  if (!result.ok) return result.errorResult();
+
+  const { finalUrl, html } = parseResponse(result.value);
+
+  return Result.ok({ url: finalUrl, content: html });
+};
+
+await crawlSite('https://docs.example.com', { siteFetcher });
+```

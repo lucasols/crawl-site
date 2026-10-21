@@ -1,10 +1,34 @@
+import { typedFetch } from '@ls-stack/typed-fetch';
 import fetchMock from 'fetch-mock';
 import fs from 'node:fs';
 import path from 'node:path';
+import { Result } from 't-result';
 import { afterEach, beforeEach, expect, test } from 'vitest';
-import { crawlSite } from '../src/main';
+import { crawlSite, type SiteFetcher } from '../src/main';
 
 const siteFetcherUrl = 'https://site-fetcher.test';
+
+const siteFetcher: SiteFetcher = async (url, { signal }) => {
+  const fetchUrl = new URL(siteFetcherUrl);
+
+  fetchUrl.searchParams.set('url', url.toString());
+
+  const result = await typedFetch(fetchUrl, {
+    jsonResponse: false,
+    timeoutMs: 60_000,
+    signal,
+  });
+
+  if (!result.ok) return result.errorResult();
+
+  const [responseUrl, content] = result.value.split('\n---\n', 2);
+
+  if (!responseUrl || !content) {
+    return Result.err(new Error('Invalid response'));
+  }
+
+  return Result.ok({ url: responseUrl, content });
+};
 
 beforeEach(() => {
   fetchMock.mockGlobal();
@@ -256,7 +280,7 @@ test('response from site-fetcher', async () => {
 
   const result = await crawlSite('https://docs.jestor.com', {
     includeSubLinks: false,
-    siteFetcherUrl,
+    siteFetcher,
   });
 
   expect(result.ok).toBe(true);

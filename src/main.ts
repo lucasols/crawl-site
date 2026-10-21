@@ -9,6 +9,11 @@ import { gfm } from 'turndown-plugin-gfm';
 const turndown = new Turndown({ codeBlockStyle: 'fenced' });
 turndown.use(gfm);
 
+export type SiteFetcher = (
+  url: URL,
+  options: { signal: AbortSignal },
+) => Promise<Result<{ url: string; content: string }, Error>>;
+
 export type CrawlSiteOptions = {
   includeSubLinks?: boolean;
   maxSizeMb?: number;
@@ -19,11 +24,11 @@ export type CrawlSiteOptions = {
   maxPages?: number;
   showLogs?: boolean;
   /**
-   * Fetcher used when a direct fetch fails, e.g. because of CORS. It receives
-   * the page as the `url` search param and must respond with the final url,
-   * a `\n---\n` separator and the page html
+   * Fallback used when a direct fetch fails, e.g. because of CORS. Once a page
+   * needs it, the following pages skip the direct fetch. Return a
+   * `TypedFetchError` with status 404 to skip the page
    */
-  siteFetcherUrl?: string;
+  siteFetcher?: SiteFetcher;
 };
 
 export type CrawlSiteResult = Result<
@@ -45,7 +50,7 @@ export async function crawlSite(
     maxFailureRate = (totalPages) => (totalPages <= 20 ? 0.5 : 0.25),
     maxPages = 500,
     showLogs,
-    siteFetcherUrl,
+    siteFetcher,
   }: CrawlSiteOptions,
 ): Promise<CrawlSiteResult> {
   const fetched = new Set<string>();
@@ -96,7 +101,7 @@ export async function crawlSite(
       url,
       abortController,
       initialPage ? null : bypassCors,
-      siteFetcherUrl,
+      siteFetcher,
     );
 
     if (htmlResult.error && htmlResult.error instanceof TypedFetchError) {
@@ -324,7 +329,7 @@ async function getLinkContent(
   link: URL,
   abortController: AbortController,
   bypassCors: boolean | null,
-  siteFetcherUrl: string | undefined,
+  siteFetcher: SiteFetcher | undefined,
 ): Promise<Result<{ url: string; content: string; directCall?: true }, Error>> {
   if (!bypassCors) {
     let responseUrl = link;
@@ -360,50 +365,21 @@ async function getLinkContent(
       });
     }
 
-    if (bypassCors === false || !siteFetcherUrl) return result.errorResult();
+    if (bypassCors === false || !siteFetcher) return result.errorResult();
   }
 
-  if (!siteFetcherUrl) return Result.err(new Error('No site fetcher url'));
+  if (!siteFetcher) return Result.err(new Error('No site fetcher'));
 
-  const fetchUrl = new URL(siteFetcherUrl);
+  const result = await siteFetcher(link, { signal: abortController.signal });
 
-  fetchUrl.searchParams.set('url', link.toString());
+  if (!result.ok) return result.errorResult();
 
-  const result = await typedFetch(fetchUrl, {
-    timeoutMs: 60_000,
-    jsonResponse: false,
-    signal: abortController.signal,
+  const responseUrl = safeURLCreator(result.value.url).unwrapOrNull();
+
+  if (!responseUrl) return Result.err(new Error('Invalid site fetcher url'));
+
+  return Result.ok({
+    url: responseUrl.toString(),
+    content: result.value.content,
   });
-
-  if (result.ok) {
-    const parsed = parseUrlAndContent(result.value);
-
-    if (!parsed) return Result.err(new Error('Invalid response'));
-
-    return Result.ok(parsed);
-  }
-
-  return result.errorResult();
-}
-
-function parseUrlAndContent(
-  response: string,
-): { url: string; content: string } | null {
-  const urlEndMarkerIndex = response.indexOf('\n---\n');
-
-  if (urlEndMarkerIndex === -1) return null;
-
-  const url = response.slice(0, urlEndMarkerIndex);
-
-  const content = response.slice(urlEndMarkerIndex + 5);
-
-  if (!url || !content) {
-    return null;
-  }
-
-  const responseUrl = safeURLCreator(url).unwrapOrNull();
-
-  if (!responseUrl) return null;
-
-  return { url: responseUrl.toString(), content };
 }
