@@ -1,4 +1,4 @@
-import { typedFetch, TypedFetchError } from '@ls-stack/typed-fetch';
+import { typedFetch } from '@ls-stack/typed-fetch';
 import { createAsyncQueueWithMeta } from '@ls-stack/utils/asyncQueue';
 import { serializeXML, type XMLNode } from '@ls-stack/utils/serializeXML';
 import { isProbablyReaderable, Readability } from '@mozilla/readability';
@@ -25,8 +25,8 @@ export type CrawlSiteOptions = {
   showLogs?: boolean;
   /**
    * Fallback used when a direct fetch fails, e.g. because of CORS. Once a page
-   * needs it, the following pages skip the direct fetch. Return a
-   * `TypedFetchError` with status 404 to skip the page
+   * needs it, the following pages skip the direct fetch. Return an error with
+   * a `status` of 404 (e.g. a `TypedFetchError`) to skip the page
    */
   siteFetcher?: SiteFetcher;
 };
@@ -104,11 +104,10 @@ export async function crawlSite(
       siteFetcher,
     );
 
-    if (htmlResult.error && htmlResult.error instanceof TypedFetchError) {
-      if (htmlResult.error.status === 404) return Result.ok('skipped');
-    }
-
     if (!htmlResult.ok) {
+      // checked structurally so errors from other `typed-fetch` copies also match
+      if (isNotFoundError(htmlResult.error)) return Result.ok('skipped');
+
       return Result.err({ id: 'unknownError', error: htmlResult.error });
     }
 
@@ -181,7 +180,7 @@ export async function crawlSite(
 
       const linkUrl = safeURLCreator(
         href,
-        href.startsWith('/') ? url.toString() : undefined,
+        responseUrl.toString(),
       ).unwrapOrNull();
 
       if (!linkUrl) continue;
@@ -216,6 +215,10 @@ export async function crawlSite(
 
     const content = turndown.turndown(article.content);
 
+    for (const page of extractedPages.values()) {
+      if (page.content === content) return Result.ok('skipped');
+    }
+
     extractedPages.set(pathname, {
       title,
       content,
@@ -223,13 +226,11 @@ export async function crawlSite(
       url: url.toString(),
     });
 
-    const allPages = Array.from(extractedPages.values());
+    let totalSize = 0;
 
-    if (allPages.some((page) => page.content === content)) {
-      return Result.ok('skipped');
+    for (const page of extractedPages.values()) {
+      totalSize += page.size;
     }
-
-    const totalSize = allPages.reduce((acc, page) => acc + page.size, 0);
 
     if (totalSize > maxSizeMb * 1024 * 1024) {
       extractedPages.delete(pathname);
@@ -298,6 +299,10 @@ export async function crawlSite(
     ),
     successCount: extractedPages.size,
   });
+}
+
+function isNotFoundError(error: object): boolean {
+  return 'status' in error && error.status === 404;
 }
 
 function safeURLCreator(url: string, baseUrl?: string): Result<URL> {

@@ -1,6 +1,6 @@
 {
   "name": "@ls-stack/crawl-site",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Crawl a site in the browser and extract its readable content as markdown",
   "license": "MIT",
   "type": "module",

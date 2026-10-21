@@ -327,3 +327,140 @@ test('returns error for invalid urls', async () => {
 
   expect(result.error && result.error.id).toEqual('invalidUrl');
 });
+
+function articlePage(title: string, links: string[] = []) {
+  const paragraph = `${title} is documented in this page. `.repeat(12);
+
+  return `<!DOCTYPE html>
+<html lang="en">
+  <head><title>${title}</title></head>
+  <body>
+    <article>
+      <h1>${title}</h1>
+      <p>${paragraph}</p>
+      <p>${paragraph}</p>
+      <ul>${links.map((href) => `<li><a href="${href}">${href}</a></li>`).join('')}</ul>
+    </article>
+  </body>
+</html>`;
+}
+
+function mockPage(url: string, body: string) {
+  fetchMock.get(url, { body, headers: { 'Content-Type': 'text/html' } });
+}
+
+function getPageUrls(fileContent: string) {
+  return Array.from(fileContent.matchAll(/<url> (.+) <\/url>/g), (m) => m[1]);
+}
+
+test('returns error when the total size exceeds maxSizeMb', async () => {
+  mockPage('https://site.test/docs', articlePage('Docs'));
+
+  const result = await crawlSite('https://site.test/docs', {
+    maxSizeMb: 1 / 1024 / 1024,
+  });
+
+  expect(result.error && result.error.id).toEqual('maxSize');
+});
+
+test('returns error when sub pages push the total size over maxSizeMb', async () => {
+  mockPage('https://site.test/docs', articlePage('Docs', ['/docs/a']));
+  mockPage('https://site.test/docs/a', articlePage('Page A'));
+
+  const singlePageSize = (
+    await crawlSite('https://site.test/docs', {})
+  ).unwrap().file.size;
+
+  const result = await crawlSite('https://site.test/docs', {
+    includeSubLinks: true,
+    maxSizeMb: singlePageSize / 1024 / 1024,
+  });
+
+  expect(result.error && result.error.id).toEqual('maxSize');
+});
+
+test('skips pages with duplicated content', async () => {
+  mockPage(
+    'https://site.test/docs',
+    articlePage('Docs', ['/docs/a', '/docs/a-copy', '/docs/b']),
+  );
+  mockPage('https://site.test/docs/a', articlePage('Page A'));
+  mockPage('https://site.test/docs/a-copy', articlePage('Page A'));
+  mockPage('https://site.test/docs/b', articlePage('Page B'));
+
+  const result = await crawlSite('https://site.test/docs', {
+    includeSubLinks: true,
+    concurrency: 1,
+  });
+
+  const { file, successCount, failures } = result.unwrap();
+
+  expect(successCount).toBe(3);
+  expect(failures).toEqual([]);
+  expect(getPageUrls(await file.text())).toEqual([
+    'https://site.test/docs',
+    'https://site.test/docs/a',
+    'https://site.test/docs/b',
+  ]);
+});
+
+test('follows relative links', async () => {
+  mockPage(
+    'https://site.test/docs/',
+    articlePage('Docs', ['intro', './guide/setup', '../docs/faq', '../blog']),
+  );
+  mockPage('https://site.test/docs/intro', articlePage('Intro'));
+  mockPage('https://site.test/docs/guide/setup', articlePage('Setup'));
+  mockPage('https://site.test/docs/faq', articlePage('FAQ'));
+
+  const result = await crawlSite('https://site.test/docs/', {
+    includeSubLinks: true,
+    concurrency: 1,
+  });
+
+  const { file, failures } = result.unwrap();
+
+  expect(failures).toEqual([]);
+  expect(getPageUrls(await file.text())).toEqual([
+    'https://site.test/docs/',
+    'https://site.test/docs/intro',
+    'https://site.test/docs/guide/setup',
+    'https://site.test/docs/faq',
+  ]);
+});
+
+test('skips pages the site fetcher reports as not found', async () => {
+  class NotFoundError extends Error {
+    status = 404;
+  }
+
+  const pages: Record<string, string> = {
+    'https://site.test/docs': articlePage('Docs', ['/docs/a', '/docs/missing']),
+    'https://site.test/docs/a': articlePage('Page A'),
+  };
+
+  fetchMock.get('begin:https://site.test', {
+    throws: new TypeError('Failed to fetch'),
+  });
+
+  const notFoundFetcher: SiteFetcher = (url) => {
+    const content = pages[url.toString()];
+
+    return Promise.resolve(
+      content ?
+        Result.ok({ url: url.toString(), content })
+      : Result.err(new NotFoundError('Not found')),
+    );
+  };
+
+  const result = await crawlSite('https://site.test/docs', {
+    includeSubLinks: true,
+    siteFetcher: notFoundFetcher,
+    maxFailureRate: () => 0,
+  });
+
+  const { successCount, failures } = result.unwrap();
+
+  expect(successCount).toBe(2);
+  expect(failures).toEqual([]);
+});
