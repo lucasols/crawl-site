@@ -1,0 +1,3 @@
+minimumReleaseAgeExclude:
+  - '@ls-stack/utils@3.78.1'
+  - evtmitter@1.1.1

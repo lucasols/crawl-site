@@ -1,0 +1,59 @@
+{
+  "name": "@ls-stack/crawl-site",
+  "version": "0.1.0",
+  "description": "Crawl a site in the browser and extract its readable content as markdown",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "lint": "pnpm tsc && pnpm eslint && pnpm format",
+    "tsc": "tsc -p tsconfig.json",
+    "tsc:watch": "tsc -p tsconfig.json --watch",
+    "format": "prettier src/ tests/ --write --list-different",
+    "test": "vitest run",
+    "test:ui": "vitest --ui",
+    "eslint": "CI=true eslint src/ tests/ --color --max-warnings=0",
+    "build": "pnpm test && pnpm lint && pnpm run build:no-test",
+    "build:no-test": "tsdown",
+    "pre-publish": "pnpm build"
+  },
+  "files": [
+    "dist"
+  ],
+  "repository": "github:lucasols/crawl-site",
+  "author": "Lucas Santos",
+  "main": "./dist/main.js",
+  "types": "./dist/main.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/main.d.ts",
+      "import": "./dist/main.js",
+      "default": "./dist/main.js"
+    }
+  },
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@ls-stack/typed-fetch": "^0.22.0",
+    "@ls-stack/utils": "^3.78.1",
+    "@mozilla/readability": "^0.6.0",
+    "t-result": "^0.6.1",
+    "turndown": "^7.2.4",
+    "turndown-plugin-gfm": "^1.0.2"
+  },
+  "devDependencies": {
+    "@ls-stack/eslint-cfg": "^0.10.0",
+    "@ls-stack/extended-lint": "^0.90.3",
+    "@types/node": "^26.6.5",
+    "@types/turndown": "^5.0.6",
+    "@vitest/ui": "^5.0.5",
+    "eslint": "^10.13.0",
+    "fetch-mock": "^12.6.0",
+    "happy-dom": "^21.0.4",
+    "prettier": "3.9.10",
+    "tsdown": "^0.23.1",
+    "typescript": "6.0.3",
+    "vitest": "^5.0.5"
+  }
+}
