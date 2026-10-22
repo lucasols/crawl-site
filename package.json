@@ -35,8 +35,8 @@
     "node": ">=20.0.0"
   },
   "dependencies": {
-    "@ls-stack/typed-fetch": "^0.22.0",
-    "@ls-stack/utils": "^3.78.1",
+    "@ls-stack/typed-fetch": "^0.22.1",
+    "@ls-stack/utils": "^4.0.0",
     "@mozilla/readability": "^0.6.0",
     "t-result": "^0.6.1",
     "turndown": "^7.2.4",

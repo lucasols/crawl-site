@@ -1,3 +1,4 @@
 minimumReleaseAgeExclude:
-  - '@ls-stack/utils@3.78.1'
+  - '@ls-stack/utils@4.0.0'
+  - '@ls-stack/typed-fetch@0.22.1'
   - evtmitter@1.1.1

@@ -9,11 +9,11 @@ importers:
   .:
     dependencies:
       '@ls-stack/typed-fetch':
-        specifier: ^0.22.0
-        version: 0.22.0
+        specifier: ^0.22.1
+        version: 0.22.1
       '@ls-stack/utils':
-        specifier: ^3.78.1
-        version: 3.78.1
+        specifier: ^4.0.0
+        version: 4.0.0
       '@mozilla/readability':
         specifier: ^0.6.0
         version: 0.6.0
@@ -189,12 +189,12 @@ packages:
       eslint: ^9.33.0
       typescript: ^5.9.2
 
-  '@ls-stack/typed-fetch@0.22.0':
-    resolution: {integrity: sha512-FK7SENSh7XW8kOJHNxGf2Z3sbxLJAUFAE+z0fhy6xkWa7fPs6utKDgDO7vW7xNlED0qOiS9j7QJ1Fmtp/x6q4g==}
+  '@ls-stack/typed-fetch@0.22.1':
+    resolution: {integrity: sha512-4QTzksmKY6ZH7NgGfUWhv8KJ4szi0DqU9ENWNXQ6mR+V4Qw27RusMoOsY/phJlg3isu9sZHfHpUw6CDKUep8aQ==}
     engines: {node: '>=23.0.0'}
 
-  '@ls-stack/utils@3.78.1':
-    resolution: {integrity: sha512-T1XFjDp9W/wn+inLo1dvPpp2Mw4sOeZbHJJ/6vvPwq/1S72jGzr41ErsooEtxY3rDln08Q6WHV5C2Ga/4spXZA==}
+  '@ls-stack/utils@4.0.0':
+    resolution: {integrity: sha512-b+0ysXyHUSbhNhLcZpUHDzaN4am8vFYHbnPbyAjejBRPGIvE6w6JClS61Tmgs1eMxiR2Bn5ISCENGj6KaDtqvw==}
     engines: {node: '>=20.0.0'}
 
   '@mixmark-io/domino@2.2.0':
@@ -1709,13 +1709,13 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@ls-stack/typed-fetch@0.22.0':
+  '@ls-stack/typed-fetch@0.22.1':
     dependencies:
-      '@ls-stack/utils': 3.78.1
+      '@ls-stack/utils': 4.0.0
       '@standard-schema/spec': 1.1.0
       t-result: 0.6.1
 
-  '@ls-stack/utils@3.78.1':
+  '@ls-stack/utils@4.0.0':
     dependencies:
       '@leeoniya/ufuzzy': 1.0.19
       evtmitter: 1.1.1
